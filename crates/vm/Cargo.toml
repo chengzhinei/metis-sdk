@@ -5,6 +5,8 @@ edition.workspace = true
 
 [dependencies]
 metis-primitives.workspace = true
+metis-crypto.workspace = true
+
 alloy-sol-types.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
@@ -16,6 +18,20 @@ smallvec.workspace = true
 libloading.workspace = true
 alith = { workspace = true, optional = true }
 moka.workspace = true
+
+cid.workspace = true
+serde.workspace = true
+serde_with.workspace = true
+serde_tuple.workspace = true
+
+fvm_shared.workspace = true
+fvm_ipld_encoding.workspace = true
+
+quickcheck_macros.workspace = true
+rand.workspace = true
+
+ethers.workspace = true
+ethers-core.workspace = true
 
 [build-dependencies]
 revmc-build = { workspace = true, optional = true }
