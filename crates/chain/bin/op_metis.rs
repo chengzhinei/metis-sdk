@@ -1,6 +1,6 @@
 #![allow(missing_docs)]
 
-use clap::Parser;
+// use clap::Parser;
 use metis_chain::op_provider::OpParallelNode;
 use reth_optimism_cli::{Cli, chainspec::OpChainSpecParser};
 use reth_optimism_node::{OpNode, args::RollupArgs};
@@ -19,14 +19,31 @@ fn main() {
         }
     }
 
-    if let Err(err) =
-        Cli::<OpChainSpecParser, RollupArgs>::parse().run(async move |builder, rollup_args| {
-            info!(target: "reth::cli", "Launching node");
+    if let Err(err) = Cli::<OpChainSpecParser, RollupArgs>::parse_args().run(async move |builder, rollup_args| {
+        info!(target: "metis::cli", "Launching node");
+        if std::env::var_os("ENABLE_PARALLEL_EXECUTOR").is_some() {
             let handle = builder.node(OpParallelNode::new(OpNode::new(rollup_args)));
             handle.launch().await?.wait_for_node_exit().await
-        })
-    {
+        } else {
+            let handle = builder.node(OpNode::new(rollup_args));
+            // handle.launch().await?.wait_for_node_exit().await
+            handle.launch_with_debug_capabilities().await?.wait_for_node_exit().await
+        }
+    }) {
         eprintln!("Error: {err:?}");
         std::process::exit(1);
     }
+
+    // if let Err(err) =
+    //     Cli::<OpChainSpecParser, RollupArgs>::parse().run(async move |builder, rollup_args| {
+    //         info!(target: "reth::cli", "Launching node");
+    //         let handle = builder.node(OpParallelNode::new(OpNode::new(rollup_args)));
+    //         handle.launch().await?.wait_for_node_exit().await
+    //     })
+    // {
+    //     eprintln!("Error: {err:?}");
+    //     std::process::exit(1);
+    // }
+
 }
+
