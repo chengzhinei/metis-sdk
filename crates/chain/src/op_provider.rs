@@ -1,4 +1,4 @@
-use alloy_consensus::{Block, Header, Receipt, TxType};
+use alloy_consensus::{Block, Header, Receipt, TxType, Transaction};
 use alloy_evm::{
     Database, Evm, EvmEnv, EvmFactory,
     block::{
@@ -132,18 +132,18 @@ impl ConfigureEvm for OpParallelEvmConfig {
 }
 
 impl ConfigureEngineEvm<OpExecutionData> for OpParallelEvmConfig {
-    fn evm_env_for_payload(&self, payload: &OpExecutionData) -> EvmEnvFor<Self> {
+    fn evm_env_for_payload(&self, payload: &OpExecutionData) -> Result<EvmEnvFor<Self>, Self::Error> {
         self.config.evm_env_for_payload(payload)
     }
 
-    fn context_for_payload<'a>(&self, payload: &'a OpExecutionData) -> ExecutionCtxFor<'a, Self> {
+    fn context_for_payload<'a>(&self, payload: &'a OpExecutionData) -> Result<ExecutionCtxFor<'a, Self>, Self::Error> {
         self.config.context_for_payload(payload)
     }
 
     fn tx_iterator_for_payload(
         &self,
         payload: &OpExecutionData,
-    ) -> impl ExecutableTxIterator<Self> {
+    ) -> Result<impl ExecutableTxIterator<Self>, Self::Error> {
         self.config.tx_iterator_for_payload(payload)
     }
 }
@@ -157,7 +157,7 @@ pub struct OpParallelBlockExecutor<Evm, Spec> {
 impl<'db, DB, E, Spec> BlockExecutor for OpParallelBlockExecutor<E, Spec>
 where
     DB: Database + 'db,
-    E: Evm<DB = &'db mut State<DB>, Tx = OpTransaction<TxEnv>>,
+    E: Evm<DB = &'db mut State<DB>, Tx = OpTransaction<TxEnv>, BlockEnv = revm::context::BlockEnv>,
     Spec: OpHardforks,
 {
     type Transaction = OpTransactionSigned;
@@ -232,7 +232,7 @@ where
 impl<'db, DB, E, Spec> OpParallelBlockExecutor<E, Spec>
 where
     DB: Database + 'db,
-    E: Evm<DB = &'db mut State<DB>, Tx = OpTransaction<TxEnv>>,
+    E: Evm<DB = &'db mut State<DB>, Tx = OpTransaction<TxEnv>, BlockEnv = revm::context::BlockEnv>,
     Spec: OpHardforks,
 {
     pub fn execute_transactions(
@@ -243,6 +243,7 @@ where
         let parallel_execute_result = self.execute(transactions)?;
         let receipts = parallel_execute_result.receipts;
         let requests = parallel_execute_result.requests;
+        let blob_gas_used = parallel_execute_result.blob_gas_used;
 
         // Governance reward for full block, ommers...
         self.post_execution()?;
@@ -252,6 +253,7 @@ where
             receipts,
             requests,
             gas_used: parallel_execute_result.gas_used,
+            blob_gas_used: blob_gas_used,
         };
 
         Ok(results)
@@ -268,6 +270,11 @@ where
         let evm_env = EvmEnv::new(CfgEnv::default(), self.evm().block().clone());
         let db = self.evm_mut().db_mut();
         db.set_state_clear_flag(state_clear_flag);
+        let transactions: Vec<_> = transactions.into_iter().collect();
+        let total_blob_gas_used: u64 = transactions
+            .iter()
+            .filter_map(|tx| tx.tx().blob_gas_used())
+            .sum();
         let mut op_parallel_executor = metis_pe::OpParallelExecutor::default();
         let results = op_parallel_executor.execute(
             StateStorageAdapter::new(db),
@@ -302,6 +309,7 @@ where
             receipts,
             gas_used: total_gas_used,
             requests: Requests::default(),
+            blob_gas_used: total_blob_gas_used,
         })
     }
 

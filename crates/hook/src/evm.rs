@@ -102,6 +102,7 @@ where
     type Spec = SpecId;
     type Precompiles = PRECOMPILE;
     type Inspector = I;
+    type BlockEnv = BlockEnv;
 
     fn block(&self) -> &BlockEnv {
         &self.block
@@ -175,6 +176,32 @@ where
     type Precompiles = PRECOMPILE;
     type Frame = EthFrame<EthInterpreter>;
 
+    /// Returns a tuple of references to the context, the frame and the instructions.
+    #[allow(clippy::type_complexity)]
+    fn all(
+        &self,
+    ) -> (
+        &Self::Context,
+        &Self::Instructions,
+        &Self::Precompiles,
+        &FrameStack<Self::Frame>,
+    ) {
+        self.inner.all()
+    }
+
+    /// Returns a tuple of mutable references to the context, the frame and the instructions.
+    #[allow(clippy::type_complexity)]
+    fn all_mut(
+        &mut self,
+    ) -> (
+        &mut Self::Context,
+        &mut Self::Instructions,
+        &mut Self::Precompiles,
+        &mut FrameStack<Self::Frame>,
+    ) {
+        self.inner.all_mut()
+    }
+
     fn ctx(&mut self) -> &mut Self::Context {
         self.inner.ctx_mut()
     }
@@ -223,6 +250,38 @@ where
     PRECOMPILE: PrecompileProvider<EthEvmContext<DB>, Output = InterpreterResult>,
 {
     type Inspector = I;
+
+    /// Returns a tuple of mutable references to the context, the inspector, the frame and the instructions.
+    ///
+    /// This is one of two functions that need to be implemented for Evm. Second one is `all_mut`.
+    #[allow(clippy::type_complexity)]
+    fn all_inspector(
+        &self,
+    ) -> (
+        &Self::Context,
+        &Self::Instructions,
+        &Self::Precompiles,
+        &FrameStack<Self::Frame>,
+        &Self::Inspector,
+    ) {
+        self.inner.all_inspector()
+    }
+
+    /// Returns a tuple of mutable references to the context, the inspector, the frame and the instructions.
+    ///
+    /// This is one of two functions that need to be implemented for Evm. Second one is `all`.
+    #[allow(clippy::type_complexity)]
+    fn all_mut_inspector(
+        &mut self,
+    ) -> (
+        &mut Self::Context,
+        &mut Self::Instructions,
+        &mut Self::Precompiles,
+        &mut FrameStack<Self::Frame>,
+        &mut Self::Inspector,
+    ) {
+        self.inner.all_mut_inspector()
+    }
 
     fn inspector(&mut self) -> &mut Self::Inspector {
         self.inner.inspector()
